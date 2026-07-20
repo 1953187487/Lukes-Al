@@ -1,13 +1,14 @@
 {
-  "version": "0.1.0-test",
+  "version": "0.1",
   "codename": "First Light",
   "releaseDate": "2025-07-20",
   "type": "prerelease",
   "changelog": [
-    "Initial release of Lukes-Al",
+    "Initial public pre-release of Lukes-Al",
     "AI Cortex with streaming responses",
     "Strike Console for authorized testing",
     "Android File System Bridge support",
-    "Quantum & Matrix themes"
+    "Quantum & Matrix themes",
+    "README updated for v0.1"
   ]
 }
