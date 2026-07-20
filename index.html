@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="quantum">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lukes-Al v0.1.0-test | Autonomous Security Intelligence</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --radius: 12px;
+            --transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            --nav-width: 240px;
+            --nav-collapsed-width: 70px;
+            --topbar-height: 70px;
+            --primary-rgb: 0, 255, 255;
+            --hologram-gradient: linear-gradient(135deg, rgba(0,255,255,0.1) 0%, rgba(179,136,255,0.1) 100%);
+            --fs-active: rgba(0, 255, 159, 0.1);
+            --fs-border: rgba(0, 255, 159, 0.3);
+        }
+        [data-theme="quantum"] {
+            --primary: #00ffff; --primary-glow: rgba(0, 255, 255, 0.8);
+            --secondary: #b388ff; --accent: #ff0080;
+            --bg-dark: #030508; --bg-surface: rgba(8, 12, 20, 0.85);
+            --bg-nav: rgba(5, 8, 15, 0.95);
+            --border-color: rgba(0, 255, 255, 0.2);
+            --text-main: #e0f7fa; --text-dim: #80deea;
+            --success: #00ff9d; --danger: #ff4081; --warning: #ffc400;
+            --particle-color: "#00ffff";
+            --scan-line: linear-gradient(to bottom, transparent 0%, rgba(0,255,255,0.1) 50%, transparent 100%);
+        }
+        [data-theme="matrix"] {
+            --primary: #00ff41; --primary-glow: rgba(0, 255, 65, 0.8);
+            --secondary: #00bcd4; --accent: #ffeb3b;
+            --bg-dark: #000; --bg-surface: rgba(0, 20, 0, 0.9);
+            --bg-nav: rgba(0, 10, 0, 0.95);
+            --border-color: rgba(0, 255, 65, 0.3);
+            --text-main: #00ff41; --text-dim: #008f11;
+            --success: #00ff41; --danger: #ff4444; --warning: #ffeb3b;
+            --particle-color: "#00ff41";
+            --scan-line: linear-gradient(to bottom, transparent 0%, rgba(0,255,65,0.1) 50%, transparent 100%);
+            --primary-rgb: 0, 255, 65;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            overflow-x: hidden;
+            position: relative;
+        }
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: var(--scan-line);
+            background-size: 100% 8px;
+            pointer-events: none;
+            z-index: 9999;
+            animation: scanMove 10s linear infinite;
+            opacity: 0.3;
+        }
+        @keyframes scanMove { 0% { background-position: 0 0; } 100% { background-position: 0 100%; } }
+
+        #particles-js { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
+        
+        .glass-card {
+            background: var(--bg-surface); backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+            position: relative; overflow: hidden;
+            transition: var(--transition);
+        }
+        .glass-card:hover { transform: translateY(-5px); box-shadow: 0 15px 50px rgba(var(--primary-rgb), 0.2); }
+        .glass-card::before {
+            content: ''; position: absolute; top: 0; left: -100%;
+            width: 200%; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--primary-glow), transparent);
+            animation: scanline 8s linear infinite;
+        }
+        @keyframes scanline { 0% { left: -100%; } 100% { left: 100%; } }
+
+        /* Update Banner */
+        .update-banner {
+            background: linear-gradient(135deg, rgba(var(--primary-rgb),0.15), rgba(179,136,255,0.15));
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: var(--text-main);
+            animation: fadeIn 0.5s ease-out;
+            margin-bottom: 15px;
+            flex-shrink: 0;
+        }
+        .update-banner a.btn { font-size: 12px; padding: 6px 14px; text-decoration: none; }
+        .update-banner .close-btn { cursor: pointer; margin-left: auto; font-size: 16px; opacity: 0.7; }
+        .update-banner .close-btn:hover { opacity: 1; }
+
+        /* Layout */
+        .app-container { width: 100%; display: flex; flex-direction: column; height: 100vh; }
+        .topbar { position: fixed; top: 0; left: var(--nav-width); width: calc(100% - var(--nav-width)); height: var(--topbar-height); background: var(--bg-nav); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 30px; z-index: 99; transition: var(--transition); }
+        .topbar.collapsed { left: var(--nav-collapsed-width); width: calc(100% - var(--nav-collapsed-width)); }
+        .logo { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 900; color: var(--primary); text-shadow: 0 0 15px var(--primary-glow); letter-spacing: 2px; display: flex; align-items: center; gap: 10px; }
+        .logo span { color: var(--secondary); font-size: 12px; font-weight: 400; }
+        .status-group { display: flex; align-items: center; gap: 15px; }
+        .global-status { font-size: 13px; color: var(--text-dim); padding: 6px 12px; background: rgba(0,0,0,0.3); border-radius: 20px; border: 1px solid var(--border-color); display: flex; align-items: center; gap: 6px; }
+        .status-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; box-shadow: 0 0 8px var(--success); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .fs-status { font-size: 11px; padding: 5px 10px; border-radius: 20px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 5px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .fs-status.active { background: var(--fs-active); border-color: var(--fs-border); color: var(--success); }
+        .theme-switcher { display: flex; gap: 6px; }
+        .theme-btn { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border-color); cursor: pointer; transition: var(--transition); }
+        .theme-btn:hover { transform: scale(1.1); }
+        .theme-btn.active { border-color: var(--primary); box-shadow: 0 0 10px var(--primary-glow); }
+        .theme-btn.quantum { background: #050710; } .theme-btn.matrix { background: #000; }
+        .nav-toggle { background: transparent; border: 1px solid var(--border-color); color: var(--text-dim); width: 34px; height: 34px; border-radius: 8px; cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center; }
+        .nav-toggle:hover { color: var(--primary); border-color: var(--primary); }
+
+        .sidebar { position: fixed; top: 0; left: 0; width: var(--nav-width); height: 100vh; background: var(--bg-nav); backdrop-filter: blur(20px); border-right: 1px solid var(--border-color); padding: 20px 0; z-index: 100; transition: var(--transition); display: flex; flex-direction: column; gap: 10px; }
+        .sidebar.collapsed { width: var(--nav-collapsed-width); }
+        .nav-group { padding: 0 15px; margin-bottom: 20px; }
+        .nav-group-title { font-size: 10px; color: var(--text-dim); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; padding-left: 10px; transition: var(--transition); white-space: nowrap; overflow: hidden; }
+        .sidebar.collapsed .nav-group-title { opacity: 0; width: 0; padding: 0; margin: 0; }
+        .nav-item { display: flex; align-items: center; gap: 14px; padding: 14px 10px; margin: 0 5px; border-radius: 10px; color: var(--text-dim); font-size: 14px; font-weight: 600; cursor: pointer; transition: var(--transition); position: relative; white-space: nowrap; overflow: hidden; }
+        .nav-item:hover { background: rgba(255,255,255,0.03); color: var(--text-main); }
+        .nav-item.active { background: rgba(var(--primary-rgb), 0.1); color: var(--primary); border-left: 3px solid var(--primary); box-shadow: inset 0 0 15px rgba(var(--primary-rgb), 0.05); }
+        .sidebar.collapsed .nav-item { justify-content: center; gap: 0; padding: 14px 0; }
+        .sidebar.collapsed .nav-item span:not(.nav-icon) { opacity: 0; width: 0; }
+        .nav-icon { font-size: 18px; min-width: 24px; text-align: center; }
+        .nav-item .tooltip { position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%); background: var(--bg-surface); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 12px; white-space: nowrap; opacity: 0; visibility: hidden; transition: var(--transition); z-index: 101; }
+        .sidebar.collapsed .nav-item:hover .tooltip { opacity: 1; visibility: visible; }
+
+        .main-wrapper { display: flex; flex: 1; margin-top: var(--topbar-height); margin-left: var(--nav-width); transition: var(--transition); }
+        .main-wrapper.collapsed { margin-left: var(--nav-collapsed-width); }
+        .main-content { flex: 1; padding: 25px; overflow-y: auto; height: calc(100vh - var(--topbar-height)); }
+        .content-page { display: none; animation: fadeIn 0.5s ease-out; }
+        .content-page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Components */
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; margin-bottom: 10px; font-size: 13px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; }
+        .form-input, .form-select { width: 100%; padding: 14px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-main); font-size: 15px; font-family: 'Courier New', monospace; transition: var(--transition); outline: none; }
+        .form-input:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 15px rgba(var(--primary-rgb), 0.2); }
+        .input-with-button { display: flex; gap: 10px; }
+        .input-with-button .form-input { flex: 1; }
+        .btn { padding: 14px 24px; background: linear-gradient(135deg, var(--primary), #0077b6); border: none; border-radius: 10px; color: #000; font-weight: 700; font-size: 14px; cursor: pointer; transition: var(--transition); text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(var(--primary-rgb), 0.3); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-secondary { background: rgba(255,255,255,0.1); color: var(--text-main); }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-success { background: var(--success); color: #000; }
+        .btn-ai { background: linear-gradient(135deg, var(--secondary), #560bad); color: #fff; }
+        .btn-fs { background: linear-gradient(135deg, var(--success), #00c853); color: #000; }
+
+        .chat-container { height: 65vh; display: flex; flex-direction: column; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 20px; background: rgba(0,0,0,0.2); border-radius: 12px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .message { max-width: 85%; padding: 15px; border-radius: 12px; line-height: 1.6; animation: popIn 0.3s ease-out; word-break: break-word; }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        .message.user { align-self: flex-end; background: linear-gradient(135deg, rgba(var(--primary-rgb),0.2), rgba(0,119,182,0.2)); border: 1px solid rgba(var(--primary-rgb),0.3); }
+        .message.ai { align-self: flex-start; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); }
+        .message.system { align-self: center; font-size: 12px; color: var(--text-dim); background: transparent; padding: 5px 10px; }
+        .typing-cursor { display: inline-block; width: 8px; height: 16px; background: var(--primary); margin-left: 2px; animation: blink 1s infinite; vertical-align: middle; }
+        @keyframes blink { 50% { opacity: 0; } }
+        .chat-input-area { display: flex; gap: 10px; }
+
+        .terminal-output { background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; font-family: 'Courier New', monospace; font-size: 14px; min-height: 120px; margin-bottom: 20px; white-space: pre-wrap; word-break: break-all; }
+        .history-item { background: rgba(0,15,30,0.4); border-radius: 12px; padding: 15px; margin-bottom: 10px; border-left: 3px solid var(--primary); animation: slideIn 0.3s ease-out; transition: var(--transition); }
+        .history-item:hover { transform: translateX(5px); border-left-color: var(--secondary); }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+        .hist-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .hist-ip { font-weight: bold; color: var(--primary); }
+        .hist-time { font-size: 12px; color: var(--text-dim); }
+        .hist-result { font-size: 13px; color: var(--text-dim); margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.1); }
+        .ai-analyze-btn { font-size: 11px; padding: 4px 10px; background: rgba(179,136,255,0.2); border: 1px solid var(--secondary); color: var(--secondary); border-radius: 20px; cursor: pointer; transition: var(--transition); }
+        .ai-analyze-btn:hover { background: var(--secondary); color: #fff; }
+
+        .setting-title { font-size: 16px; font-weight: 600; color: var(--text-main); margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px; }
+        .sys-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
+        .sys-info-item { background: rgba(0,0,0,0.2); border-radius: 10px; padding: 16px; }
+        .sys-info-label { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+        .sys-info-value { font-size: 14px; font-family: 'Courier New', monospace; word-break: break-all; }
+        .test-status { margin-top: 15px; padding: 12px; border-radius: 10px; font-size: 14px; display: flex; align-items: center; gap: 10px; opacity: 0; transform: translateY(10px); transition: var(--transition); }
+        .test-status.show { opacity: 1; transform: translateY(0); }
+        .test-status.success { background: rgba(0,255,157,0.1); border: 1px solid var(--success); color: var(--success); }
+        .test-status.error { background: rgba(255,64,129,0.1); border: 1px solid var(--danger); color: var(--danger); }
+        .test-status.loading { background: rgba(var(--primary-rgb),0.1); border: 1px solid var(--primary); color: var(--primary); }
+        .spinner { width: 16px; height: 16px; border: 2px solid var(--border-color); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 1000; justify-content: center; align-items: center; animation: fadeIn 0.3s; }
+        .modal-overlay.show { display: flex; }
+        .modal { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 30px; max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.8); animation: modalIn 0.3s ease-out; position: relative; }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .modal-close { position: absolute; top: 16px; right: 20px; background: none; border: none; color: var(--text-dim); font-size: 24px; cursor: pointer; transition: var(--transition); }
+        .modal-close:hover { color: var(--danger); }
+        #fileListContent { max-height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 13px; }
+
+        #boot-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'Orbitron', sans-serif; transition: opacity 0.8s ease-out, visibility 0.8s; }
+        #boot-screen.hidden { opacity: 0; visibility: hidden; }
+        .boot-logo { font-size: 42px; color: var(--primary); text-shadow: 0 0 20px var(--primary-glow); margin-bottom: 30px; letter-spacing: 5px; }
+        .boot-progress { width: 300px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+        .boot-bar { width: 0%; height: 100%; background: var(--primary); box-shadow: 0 0 10px var(--primary); animation: bootLoad 2.5s forwards; }
+        @keyframes bootLoad { 0% { width: 0%; } 50% { width: 70%; } 100% { width: 100%; } }
+        .boot-text { margin-top: 20px; font-size: 14px; color: var(--text-dim); letter-spacing: 2px; }
+
+        @media (max-width: 768px) {
+            .sidebar { width: var(--nav-collapsed-width); } .main-wrapper { margin-left: var(--nav-collapsed-width); }
+            .topbar { left: var(--nav-collapsed-width); width: calc(100% - var(--nav-collapsed-width)); }
+            .status-group { flex-wrap: wrap; gap: 8px; } .global-status, .fs-status { max-width: 120px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Boot Screen -->
+    <div id="boot-screen">
+        <div class="boot-logo">LUKES-AL</div>
+        <div class="boot-progress"><div class="boot-bar"></div></div>
+        <div class="boot-text" id="bootText">Initializing Core v0.1.0-test...</div>
+    </div>
+
+    <div id="particles-js"></div>
+
+    <div class="app-container">
+        <!-- Update Banner Container -->
+        <div id="updateBannerContainer"></div>
+
+        <!-- Topbar -->
+        <header class="topbar" id="topbar">
+            <div class="logo">
+                <i class="fas fa-brain"></i> LUKES-AL <span>v0.1.0-test</span>
+            </div>
+            <div class="status-group">
+                <div class="global-status">
+                    <div class="status-dot"></div>
+                    <span id="globalStatus">System Ready</span>
+                </div>
+                <div class="fs-status inactive" id="fsStatus">
+                    <i class="fas fa-folder"></i>
+                    <span>No FS Bound</span>
+                </div>
+                <div class="theme-switcher">
+                    <div class="theme-btn quantum active" data-theme="quantum"></div>
+                    <div class="theme-btn matrix" data-theme="matrix"></div>
+                </div>
+                <button class="nav-toggle" id="navToggle">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <nav class="sidebar" id="sidebar">
+            <div class="nav-group">
+                <div class="nav-group-title">Core Ops</div>
+                <div class="nav-item active" data-page="ai-terminal">
+                    <i class="fas fa-brain nav-icon"></i>
+                    <span>AI Cortex</span>
+                    <div class="tooltip">AI Cortex</div>
+                </div>
+                <div class="nav-item" data-page="attack-terminal">
+                    <i class="fas fa-crosshairs nav-icon"></i>
+                    <span>Strike Console</span>
+                    <div class="tooltip">Strike Console</div>
+                </div>
+            </div>
+            <div class="nav-group">
+                <div class="nav-group-title">System</div>
+                <div class="nav-item" data-page="settings">
+                    <i class="fas fa-cogs nav-icon"></i>
+                    <span>Core Settings</span>
+                    <div class="tooltip">Core Settings</div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Wrapper -->
+        <main class="main-wrapper" id="mainWrapper">
+            <div class="main-content">
+                <!-- AI Cortex -->
+                <div id="ai-terminal" class="content-page active">
+                    <div class="glass-card">
+                        <div class="setting-title"><i class="fas fa-brain"></i> AI Cortex (Streaming)</div>
+                        <div class="card-body">
+                            <div class="chat-container">
+                                <div class="chat-messages" id="chatMessages"></div>
+                                <div class="chat-input-area">
+                                    <input type="text" class="form-input" id="chatInput" placeholder="Command the AI...">
+                                    <button class="btn btn-ai" id="sendBtn"><i class="fas fa-paper-plane"></i> Send</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Strike Console -->
+                <div id="attack-terminal" class="content-page">
+                    <div class="glass-card">
+                        <div class="setting-title"><i class="fas fa-crosshairs"></i> Strike Console</div>
+                        <div class="card-body">
+                            <div class="disclaimer" style="background: rgba(255,64,129,0.08); border: 1px solid rgba(255,64,129,0.3); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; display: flex; gap: 12px; font-size: 12px; color: var(--text-dim); line-height: 1.5;">
+                                <i class="fas fa-exclamation-triangle" style="font-size: 18px; color: var(--danger);"></i>
+                                <span><strong style="color: #ff6b8a;">Legal Warning:</strong> Authorized testing only.</span>
+                            </div>
+                            <div class="input-with-button">
+                                <input type="text" class="form-input" id="targetInput" placeholder="Target IP:Port (Default 10200)">
+                                <button class="btn" id="executeBtn"><i class="fas fa-bolt"></i> Execute</button>
+                            </div>
+                            <div class="terminal-output" id="outputTerminal"><span class="typing-cursor"></span> Awaiting command...</div>
+                            <div class="setting-title" style="padding: 15px 0; border: none; font-size: 16px;"><i class="fas fa-history"></i> Execution Log</div>
+                            <div id="historyList"><div class="system" style="text-align:center; padding: 20px;">No records.</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Core Settings -->
+                <div id="settings" class="content-page">
+                    <div class="glass-card">
+                        <div class="setting-title"><i class="fas fa-cogs"></i> Core Settings</div>
+                        <div class="card-body">
+                            <!-- System Info -->
+                            <div class="setting-section">
+                                <div class="setting-title"><i class="fas fa-info-circle"></i> System Overview</div>
+                                <div class="sys-info-grid">
+                                    <div class="sys-info-item"><div class="sys-info-label">Version</div><div class="sys-info-value">v0.1.0-test (First Light)</div></div>
+                                    <div class="sys-info-item"><div class="sys-info-label">Repository</div><div class="sys-info-value">1953187487/Lukes-Al</div></div>
+                                    <div class="sys-info-item"><div class="sys-info-label">Runtime</div><div class="sys-info-value" id="runtimeEnv">Detecting...</div></div>
+                                    <div class="sys-info-item"><div class="sys-info-label">Storage</div><div class="sys-info-value" id="storageInfo">Calculating...</div></div>
+                                </div>
+                            </div>
+
+                            <!-- AI Config -->
+                            <div class="setting-section">
+                                <div class="setting-title"><i class="fas fa-robot"></i> AI Engine</div>
+                                <div class="form-group">
+                                    <label class="form-label">Provider</label>
+                                    <select class="form-select" id="providerSelect">
+                                        <option value="openai">OpenAI</option>
+                                        <option value="custom">Custom API</option>
+                                        <option value="deepseek">DeepSeek</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">API URL</label>
+                                    <input type="text" class="form-input" id="apiUrl" placeholder="https://api.openai.com/v1">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">API Key</label>
+                                    <div class="input-with-button">
+                                        <input type="password" class="form-input" id="apiKey" placeholder="sk-...">
+                                        <button class="btn btn-secondary" id="toggleKeyBtn"><i class="fas fa-eye"></i></button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Model</label>
+                                    <div class="input-with-button">
+                                        <select class="form-select" id="modelSelect"><option>Fetch models first</option></select>
+                                        <button class="btn btn-secondary" id="fetchModelsBtn"><i class="fas fa-sync-alt"></i> Fetch</button>
+                                    </div>
+                                </div>
+                                <button class="btn btn-success" id="testConnBtn" style="width: 100%;"><i class="fas fa-plug"></i> Test Connection</button>
+                                <div id="testStatus" class="test-status"></div>
+                            </div>
+
+                            <!-- Android FS -->
+                            <div class="setting-section">
+                                <div class="setting-title"><i class="fas fa-folder-open"></i> Android FS Bridge</div>
+                                <div class="form-group">
+                                    <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 15px; line-height: 1.5;">
+                                        Bind an Android folder for AI read/write access (Requires Chrome 86+ on Android).
+                                    </p>
+                                    <div class="input-with-button">
+                                        <input type="text" class="form-input" id="fsPath" placeholder="No folder bound" readonly>
+                                        <button class="btn btn-fs" id="bindFsBtn"><i class="fas fa-link"></i> Bind</button>
+                                    </div>
+                                    <div style="margin-top: 15px; display: flex; gap: 10px;">
+                                        <button class="btn btn-secondary" id="unbindFsBtn" style="flex: 1;"><i class="fas fa-unlink"></i> Unbind</button>
+                                        <button class="btn btn-secondary" id="listFilesBtn" style="flex: 1;"><i class="fas fa-list"></i> List Files</button>
+                                    </div>
+                                    <div id="fsStatusDetail" class="test-status"></div>
+                                </div>
+                            </div>
+
+                            <!-- Data Management -->
+                            <div class="setting-section">
+                                <div class="setting-title"><i class="fas fa-database"></i> Data Hub</div>
+                                <div class="form-group">
+                                    <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 15px; line-height: 1.5;">
+                                        Export all data to `.lukeal` format for mobile transfer.
+                                    </p>
+                                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                        <button class="btn btn-success" id="exportDataBtn" style="flex: 1;"><i class="fas fa-download"></i> Export</button>
+                                        <button class="btn btn-secondary" id="importDataBtn" style="flex: 1;"><i class="fas fa-upload"></i> Import</button>
+                                    </div>
+                                    <button class="btn btn-danger" id="clearAllBtn" style="width: 100%;"><i class="fas fa-trash-alt"></i> Purge All Data</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="fileListModal">
+        <div class="modal">
+            <button class="modal-close" id="closeFileListModal">&times;</button>
+            <div class="setting-title"><i class="fas fa-folder-open"></i> Bound Directory Contents</div>
+            <div id="fileListContent"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script>
+        // ==========================================
+        // LUKES-AL v0.1.0-test
+        // Core Application Logic
+        // ==========================================
+
+        const APP = {
+            NAME: 'Lukes-Al',
+            VERSION: '0.1.0-test',
+            CODENAME: 'First Light',
+            REPO_OWNER: '1953187487',
+            REPO_NAME: 'Lukes-Al',
+            VERSION_URL: 'https://raw.githubusercontent.com/1953187487/Lukes-Al/main/version.json',
+            RELEASE_URL: 'https://github.com/1953187487/Lukes-Al/releases'
+        };
+
+        const State = {
+            config: {
+                provider: 'openai',
+                apiUrl: 'https://api.openai.com/v1',
+                apiKey: '',
+                model: 'gpt-3.5-turbo',
+                temperature: 0.7,
+                maxTokens: 2048,
+                fsHandle: null,
+                theme: 'quantum'
+            },
+            chatHistory: [],
+            attackHistory: [],
+            logs: [],
+            isAttacking: false,
+            isStreaming: false
+        };
+
+        const DOM = {
+            bootScreen: document.getElementById('boot-screen'),
+            bootText: document.getElementById('bootText'),
+            updateBannerContainer: document.getElementById('updateBannerContainer'),
+            topbar: document.getElementById('topbar'),
+            sidebar: document.getElementById('sidebar'),
+            mainWrapper: document.getElementById('mainWrapper'),
+            navToggle: document.getElementById('navToggle'),
+            globalStatus: document.getElementById('globalStatus'),
+            fsStatus: document.getElementById('fsStatus'),
+            chatMessages: document.getElementById('chatMessages'),
+            chatInput: document.getElementById('chatInput'),
+            sendBtn: document.getElementById('sendBtn'),
+            targetInput: document.getElementById('targetInput'),
+            executeBtn: document.getElementById('executeBtn'),
+            outputTerminal: document.getElementById('outputTerminal'),
+            historyList: document.getElementById('historyList'),
+            providerSelect: document.getElementById('providerSelect'),
+            apiUrl: document.getElementById('apiUrl'),
+            apiKey: document.getElementById('apiKey'),
+            toggleKeyBtn: document.getElementById('toggleKeyBtn'),
+            modelSelect: document.getElementById('modelSelect'),
+            fetchModelsBtn: document.getElementById('fetchModelsBtn'),
+            testConnBtn: document.getElementById('testConnBtn'),
+            testStatus: document.getElementById('testStatus'),
+            fsPath: document.getElementById('fsPath'),
+            bindFsBtn: document.getElementById('bindFsBtn'),
+            unbindFsBtn: document.getElementById('unbindFsBtn'),
+            listFilesBtn: document.getElementById('listFilesBtn'),
+            fsStatusDetail: document.getElementById('fsStatusDetail'),
+            exportDataBtn: document.getElementById('exportDataBtn'),
+            importDataBtn: document.getElementById('importDataBtn'),
+            clearAllBtn: document.getElementById('clearAllBtn'),
+            fileListModal: document.getElementById('fileListModal'),
+            fileListContent: document.getElementById('fileListContent'),
+            closeFileListModal: document.getElementById('closeFileListModal'),
+            runtimeEnv: document.getElementById('runtimeEnv'),
+            storageInfo: document.getElementById('storageInfo')
+        };
+
+        const Utils = {
+            log(level, module, message) {
+                const entry = { timestamp: new Date().toISOString(), level, module, message };
+                State.logs.unshift(entry);
+                if (State.logs.length > 200) State.logs.pop();
+                this.saveLogs();
+                if (State.config.debugMode && level !== 'DEBUG') {
+                    console.log(`%c[${module}] ${message}`, `color: ${level === 'ERROR' ? '#ff4081' : level === 'SUCCESS' ? '#00ff9d' : '#00ffff'}`);
+                }
+            },
+            saveLogs() { localStorage.setItem('lukesal_logs', JSON.stringify(State.logs)); },
+            loadLogs() { try { State.logs = JSON.parse(localStorage.getItem('lukesal_logs')) || []; } catch { State.logs = []; } },
+            setStatus(text) { DOM.globalStatus.textContent = text; },
+            setTestStatus(type, msg) {
+                const el = DOM.testStatus;
+                el.className = `test-status show ${type}`;
+                el.innerHTML = type === 'loading' ? '<div class="spinner"></div>' : `<i class="fas fa-${type === 'success' ? 'check' : 'times'}-circle"></i> ${msg}`;
+                if (type !== 'loading') setTimeout(() => el.classList.remove('show'), 4000);
+            },
+            setFsStatus(type, msg) {
+                const el = DOM.fsStatusDetail;
+                el.className = `test-status show ${type}`;
+                el.innerHTML = type === 'loading' ? '<div class="spinner"></div>' : `<i class="fas fa-${type === 'success' ? 'check' : 'times'}-circle"></i> ${msg}`;
+                if (type !== 'loading') setTimeout(() => el.classList.remove('show'), 4000);
+            },
+            saveConfig() {
+                const cfg = { ...State.config };
+                delete cfg.fsHandle; // Cannot serialize FileSystemHandle
+                localStorage.setItem('lukesal_config', JSON.stringify(cfg));
+            },
+            loadConfig() {
+                try {
+                    const saved = JSON.parse(localStorage.getItem('lukesal_config'));
+                    if (saved) State.config = { ...State.config, ...saved };
+                    // Restore UI
+                    DOM.providerSelect.value = State.config.provider;
+                    DOM.apiUrl.value = State.config.apiUrl;
+                    DOM.apiKey.value = State.config.apiKey;
+                    DOM.modelSelect.innerHTML = `<option>${State.config.model}</option>`;
+                    DOM.modelSelect.value = State.config.model;
+                    document.documentElement.setAttribute('data-theme', State.config.theme);
+                    document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === State.config.theme));
+                } catch (e) { console.error("Config load failed", e); }
+            },
+            saveChat() { localStorage.setItem('lukesal_chat', JSON.stringify(State.chatHistory.slice(-50))); },
+            loadChat() { try { State.chatHistory = JSON.parse(localStorage.getItem('lukesal_chat')) || []; } catch { State.chatHistory = []; } },
+            saveAttacks() { localStorage.setItem('lukesal_attacks', JSON.stringify(State.attackHistory.slice(-50))); },
+            loadAttacks() { try { State.attackHistory = JSON.parse(localStorage.getItem('lukesal_attacks')) || []; } catch { State.attackHistory = []; } },
+            escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
+        };
+
+        const VersionManager = {
+            async check() {
+                try {
+                    const res = await fetch(`${APP.VERSION_URL}?t=${Date.now()}`);
+                    if (!res.ok) return;
+                    const remote = await res.json();
+                    if (remote.version && remote.version !== APP.VERSION) {
+                        this.showBanner(remote);
+                        Utils.log('INFO', 'CORE', `Update found: ${remote.version}`);
+                    } else {
+                        Utils.log('INFO', 'CORE', 'Version up to date.');
+                    }
+                } catch (e) {
+                    Utils.log('DEBUG', 'CORE', 'Version check skipped (Repo empty or offline).');
+                }
+            },
+            showBanner(remote) {
+                const ignored = localStorage.getItem('lukesal_ignore_ver');
+                if (ignored === remote.version) return;
+
+                DOM.updateBannerContainer.innerHTML = `
+                    <div class="update-banner">
+                        <i class="fas fa-satellite-dish"></i>
+                        <span>New version <strong>${remote.version}</strong> (${remote.codename}) available. ${remote.changelog}</span>
+                        <a href="${remote.releaseUrl || APP.RELEASE_URL}" target="_blank" class="btn btn-success">Update</a>
+                        <span class="close-btn" id="closeBanner">&times;</span>
+                    </div>
+                `;
+                document.getElementById('closeBanner').onclick = () => {
+                    localStorage.setItem('lukesal_ignore_ver', remote.version);
+                    DOM.updateBannerContainer.innerHTML = '';
+                };
+            }
+        };
+
+        const AI = {
+            async *stream(messages) {
+                const { apiUrl, apiKey, model, temperature, maxTokens } = State.config;
+                if (!apiKey) throw new Error("API Key not configured.");
+                
+                const res = await fetch(`${apiUrl}/chat/completions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                    body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens, stream: true })
+                });
+                if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || `HTTP ${res.status}`); }
+                
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buf = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buf += decoder.decode(value, { stream: true });
+                    const lines = buf.split('\n');
+                    buf = lines.pop();
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.substring(6);
+                            if (data === '[DONE]') return;
+                            try {
+                                const json = JSON.parse(data);
+                                const content = json.choices?.[0]?.delta?.content;
+                                if (content) yield content;
+                            } catch {}
+                        }
+                    }
+                }
+            },
+            async send(msg) {
+                if (State.isStreaming) return;
+                State.chatHistory.push({ role: 'user', content: msg });
+                UI.renderChat();
+                Utils.saveChat();
+                DOM.chatInput.value = '';
+                
+                const msgDiv = UI.appendMsg('ai', '', true);
+                let full = '';
+                try {
+                    State.isStreaming = true;
+                    Utils.setStatus('AI Thinking...');
+                    for await (const chunk of this.stream(State.chatHistory.slice(-10))) {
+                        full += chunk;
+                        msgDiv.innerHTML = Utils.escapeHtml(full).replace(/\n/g, '<br>') + '<span class="typing-cursor"></span>';
+                        DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+                    }
+                    State.chatHistory.push({ role: 'assistant', content: full });
+                    Utils.saveChat();
+                    UI.appendMsg('ai', full); // Final render without cursor
+                } catch (e) {
+                    UI.appendMsg('ai', `<span style="color:var(--danger)">Error: ${e.message}</span>`);
+                    Utils.log('ERROR', 'AI', e.message);
+                } finally {
+                    State.isStreaming = false;
+                    Utils.setStatus('Ready');
+                }
+            },
+            async fetchModels() {
+                Utils.setTestStatus('loading', 'Fetching...');
+                try {
+                    const res = await fetch(`${State.config.apiUrl}/models`, { headers: { 'Authorization': `Bearer ${State.config.apiKey}` } });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    DOM.modelSelect.innerHTML = data.data
+                        .filter(m => m.id.includes('gpt') || m.id.includes('claude') || m.id.includes('deepseek'))
+                        .map(m => `<option value="${m.id}">${m.id}</option>`).join('');
+                    Utils.setTestStatus('success', 'Models loaded.');
+                } catch (e) { Utils.setTestStatus('error', e.message); }
+            },
+            async test() {
+                Utils.setTestStatus('loading', 'Testing...');
+                try {
+                    const res = await fetch(`${State.config.apiUrl}/chat/completions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${State.config.apiKey}` },
+                        body: JSON.stringify({ model: State.config.model, messages: [{role:'user',content:'hi'}], max_tokens: 5 })
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    Utils.setTestStatus('success', 'Connection OK!');
+                } catch (e) { Utils.setTestStatus('error', e.message); }
+            }
+        };
+
+        const Attack = {
+            validate(ip) {
+                const m = ip.match(/^(\d+\.\d+\.\d+\.\d+)(?::(\d+))?$/);
+                return m ? { host: m[1], port: m[2] || 10200 } : null;
+            },
+            async exec(target) {
+                if (State.isAttacking) return;
+                State.isAttacking = true;
+                DOM.executeBtn.disabled = true;
+                DOM.executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                Utils.setStatus(`Striking ${target.host}:${target.port}`);
+                
+                await new Promise(r => setTimeout(r, 1500));
+                const success = Math.random() > 0.3;
+                const latency = Math.floor(Math.random() * 200) + 50;
+                
+                let output, record;
+                if (success) {
+                    output = `[+] Target: ${target.host}:${target.port}\n[+] Status: NACK Success\n[+] Latency: ${latency}ms`;
+                    record = { id: Date.now(), ip: `${target.host}:${target.port}`, time: new Date().toLocaleString(), status: 'success', result: `NACK OK (${latency}ms)` };
+                } else {
+                    output = `[!] Target: ${target.host}:${target.port}\n[!] Status: Blocked\n[!] Reason: Firewall`;
+                    record = { id: Date.now(), ip: `${target.host}:${target.port}`, time: new Date().toLocaleString(), status: 'error', result: 'Firewalled' };
+                }
+                
+                DOM.outputTerminal.innerHTML = output + '\n<span class="typing-cursor"></span>';
+                State.attackHistory.unshift(record);
+                UI.renderAttacks();
+                Utils.saveAttacks();
+                
+                State.isAttacking = false;
+                DOM.executeBtn.disabled = false;
+                DOM.executeBtn.innerHTML = '<i class="fas fa-bolt"></i> Execute';
+                Utils.setStatus('Ready');
+            }
+        };
+
+        const FS = {
+            async bind() {
+                if (!('showDirectoryPicker' in window)) { Utils.setFsStatus('error', 'API not supported.'); return; }
+                try {
+                    const handle = await window.showDirectoryPicker();
+                    const perm = await handle.requestPermission({ mode: 'readwrite' });
+                    if (perm !== 'granted') throw new Error('Permission denied');
+                    State.config.fsHandle = handle;
+                    DOM.fsPath.value = handle.name;
+                    DOM.fsStatus.className = 'fs-status active';
+                    DOM.fsStatus.innerHTML = `<i class="fas fa-folder-open"></i><span>${handle.name}</span>`;
+                    Utils.setFsStatus('success', 'Bound successfully.');
+                    Utils.saveConfig();
+                } catch (e) { Utils.setFsStatus('error', e.message); }
+            },
+            async list() {
+                if (!State.config.fsHandle) { Utils.setFsStatus('error', 'No folder bound.'); return; }
+                let html = '';
+                const scan = async (h, p = '') => {
+                    for await (const e of h.values()) {
+                        const np = p ? `${p}/${e.name}` : e.name;
+                        if (e.kind === 'file') {
+                            const f = await e.getFile();
+                            html += `<div style="padding:4px 0; border-bottom:1px solid var(--border-color);"><i class="fas fa-file" style="color:var(--primary); margin-right:8px;"></i>${np} <span style="float:right;color:var(--text-dim);font-size:11px;">${Utils.formatBytes(f.size)}</span></div>`;
+                        } else { await scan(e, np); }
+                    }
+                };
+                await scan(State.config.fsHandle);
+                DOM.fileListContent.innerHTML = html || '<div style="text-align:center;padding:20px;color:var(--text-dim);">Empty directory</div>';
+                DOM.fileListModal.classList.add('show');
+            },
+            unbind() {
+                State.config.fsHandle = null;
+                DOM.fsPath.value = '';
+                DOM.fsStatus.className = 'fs-status inactive';
+                DOM.fsStatus.innerHTML = '<i class="fas fa-folder"></i><span>No FS Bound</span>';
+                Utils.setFsStatus('success', 'Unbound.');
+                Utils.saveConfig();
+            }
+        };
+
+        const DataHub = {
+            export() {
+                const data = { version: APP.VERSION, config: { ...State.config }, chat: State.chatHistory, attacks: State.attackHistory, logs: State.logs };
+                delete data.config.fsHandle;
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `lukes-al_backup_${Date.now()}.lukeal`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+                Utils.setFsStatus('success', 'Exported.');
+            },
+            import() {
+                const i = document.createElement('input');
+                i.type = 'file';
+                i.accept = '.lukeal,.json';
+                i.onchange = async e => {
+                    try {
+                        const d = JSON.parse(await e.target.files[0].text());
+                        if (d.config) State.config = { ...State.config, ...d.config };
+                        if (d.chat) State.chatHistory = d.chat;
+                        if (d.attacks) State.attackHistory = d.attacks;
+                        if (d.logs) State.logs = d.logs;
+                        Utils.saveConfig(); Utils.saveChat(); Utils.saveAttacks(); Utils.saveLogs();
+                        UI.renderChat(); UI.renderAttacks();
+                        Utils.setFsStatus('success', 'Imported.');
+                    } catch (err) { Utils.setFsStatus('error', 'Invalid file.'); }
+                };
+                i.click();
+            },
+            purge() {
+                if (!confirm('Purge ALL data?')) return;
+                localStorage.clear();
+                location.reload();
+            }
+        };
+
+        const UI = {
+            switchPage(id) {
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.page === id));
+                document.querySelectorAll('.content-page').forEach(p => p.classList.toggle('active', p.id === id));
+            },
+            toggleSidebar() {
+                const c = DOM.sidebar.classList.toggle('collapsed');
+                DOM.mainWrapper.classList.toggle('collapsed');
+                DOM.topbar.classList.toggle('collapsed');
+                DOM.navToggle.querySelector('i').className = c ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
+            },
+            appendMsg(sender, content, streaming = false) {
+                const d = document.createElement('div');
+                d.className = `message ${sender}`;
+                d.innerHTML = sender === 'system' ? content : Utils.escapeHtml(content).replace(/\n/g, '<br>');
+                if (streaming) d.innerHTML += '<span class="typing-cursor"></span>';
+                DOM.chatMessages.appendChild(d);
+                DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+                return d;
+            },
+            renderChat() {
+                DOM.chatMessages.innerHTML = '';
+                State.chatHistory.forEach(m => this.appendMsg(m.role === 'user' ? 'user' : 'ai', m.content));
+            },
+            renderAttacks() {
+                if (State.attackHistory.length === 0) { DOM.historyList.innerHTML = '<div class="system" style="text-align:center; padding:20px;">No records.</div>'; return; }
+                DOM.historyList.innerHTML = State.attackHistory.map(r => `
+                    <div class="history-item">
+                        <div class="hist-header">
+                            <span class="hist-ip">🌐 ${r.ip}</span>
+                            <button class="ai-analyze-btn" data-id="${r.id}">AI</button>
+                        </div>
+                        <div class="hist-time">🕒 ${r.time}</div>
+                        <div class="hist-result">${r.result}</div>
+                    </div>
+                `).join('');
+            },
+            initParticles() {
+                const c = getComputedStyle(document.documentElement).getPropertyValue('--particle-color').replace(/"/g, '');
+                particlesJS('particles-js', {
+                    particles: { number: { value: 60 }, color: { value: c }, shape: { type: "circle" }, opacity: { value: 0.3 }, size: { value: 2 }, line_linked: { enable: true, distance: 150, color: c, opacity: 0.1 }, move: { enable: true, speed: 1 } },
+                    interactivity: { detect_on: "canvas", events: { onhover: { enable: true, mode: "repulse" }, onclick: { enable: true, mode: "push" } } }
+                });
+            },
+            bootSequence() {
+                const steps = ["Init Core...", "Loading Modules...", "Checking GitHub...", "Ready."];
+                let i = 0;
+                const next = () => {
+                    if (i < steps.length) {
+                        DOM.bootText.textContent = steps[i];
+                        setTimeout(next, 600);
+                        i++;
+                    } else {
+                        setTimeout(() => DOM.bootScreen.classList.add('hidden'), 500);
+                    }
+                };
+                next();
+            },
+            detectEnv() {
+                const ua = navigator.userAgent;
+                DOM.runtimeEnv.textContent = /Android/.test(ua) ? 'Android' : /Win/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'macOS' : 'Linux';
+                try {
+                    const used = JSON.stringify(localStorage).length;
+                    DOM.storageInfo.textContent = `${Math.round(used/1024)}KB / 5MB`;
+                } catch { DOM.storageInfo.textContent = 'N/A'; }
+            }
+        };
+
+        function bindEvents() {
+            DOM.navToggle.onclick = () => UI.toggleSidebar();
+            document.querySelectorAll('.nav-item').forEach(i => i.onclick = () => UI.switchPage(i.dataset.page));
+            
+            DOM.sendBtn.onclick = () => AI.send(DOM.chatInput.value);
+            DOM.chatInput.onkeypress = e => e.key === 'Enter' && AI.send(DOM.chatInput.value);
+            
+            DOM.executeBtn.onclick = () => { const t = Attack.validate(DOM.targetInput.value); if (t) Attack.exec(t); };
+            DOM.historyList.onclick = e => { if (e.target.classList.contains('ai-analyze-btn')) { const r = State.attackHistory.find(x => x.id == e.target.dataset.id); if (r) { UI.switchPage('ai-terminal'); setTimeout(() => AI.send(`Analyze attack on ${r.ip}: ${r.result}`), 300); } } };
+            
+            DOM.providerSelect.onchange = e => { State.config.provider = e.target.value; if (e.target.value === 'openai') State.config.apiUrl = 'https://api.openai.com/v1'; if (e.target.value === 'deepseek') State.config.apiUrl = 'https://api.deepseek.com/v1'; DOM.apiUrl.value = State.config.apiUrl; Utils.saveConfig(); };
+            DOM.apiUrl.oninput = e => { State.config.apiUrl = e.target.value; Utils.saveConfig(); };
+            DOM.apiKey.oninput = e => { State.config.apiKey = e.target.value; Utils.saveConfig(); };
+            DOM.modelSelect.onchange = e => { State.config.model = e.target.value; Utils.saveConfig(); };
+            DOM.toggleKeyBtn.onclick = () => { DOM.apiKey.type = DOM.apiKey.type === 'password' ? 'text' : 'password'; };
+            DOM.fetchModelsBtn.onclick = () => AI.fetchModels();
+            DOM.testConnBtn.onclick = () => AI.test();
+            
+            DOM.bindFsBtn.onclick = () => FS.bind();
+            DOM.unbindFsBtn.onclick = () => FS.unbind();
+            DOM.listFilesBtn.onclick = () => FS.list();
+            DOM.closeFileListModal.onclick = () => DOM.fileListModal.classList.remove('show');
+            
+            DOM.exportDataBtn.onclick = () => DataHub.export();
+            DOM.importDataBtn.onclick = () => DataHub.import();
+            DOM.clearAllBtn.onclick = () => DataHub.purge();
+            
+            document.querySelectorAll('.theme-btn').forEach(b => b.onclick = () => {
+                document.documentElement.setAttribute('data-theme', b.dataset.theme);
+                State.config.theme = b.dataset.theme;
+                Utils.saveConfig();
+                document.querySelectorAll('.theme-btn').forEach(x => x.classList.toggle('active', x === b));
+                UI.initParticles();
+            });
+        }
+
+        async function init() {
+            Utils.loadConfig();
+            Utils.loadLogs();
+            Utils.loadChat();
+            Utils.loadAttacks();
+            
+            UI.detectEnv();
+            UI.initParticles();
+            UI.bootSequence();
+            UI.renderChat();
+            UI.renderAttacks();
+            bindEvents();
+            
+            Utils.log('INFO', 'CORE', `Lukes-Al ${APP.VERSION} starting...`);
+            await VersionManager.check(); // Check for updates after boot
+            Utils.log('SUCCESS', 'CORE', `Lukes-Al ${APP.VERSION} ready.`);
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
